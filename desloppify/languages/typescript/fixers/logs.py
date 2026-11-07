@@ -1,75 +1,95 @@
-"""Debug log fixer: removes tagged console.log lines and cleans up aftermath."""
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
+"""Remove tagged logging while preserving argument evaluation and control flow."""
 
 from __future__ import annotations
 
-import sys
-
-from desloppify.base.discovery.file_paths import rel
-from desloppify.base.output.terminal import colorize
 from desloppify.languages._framework.base.types import FixResult
+from desloppify.languages.typescript.detectors.logs_syntax import tagged_log_calls
 from desloppify.languages.typescript.fixers.fixer_io import apply_fixer
-from desloppify.languages.typescript.fixers.logs_cleanup import (
-    find_dead_log_variables,
-    mark_orphaned_comments,
-    remove_empty_blocks,
-)
 from desloppify.languages.typescript.fixers.logs_context import (
     is_logger_wrapper_context,
-)
-from desloppify.languages.typescript.fixers.syntax_scan import (
-    collapse_blank_lines,
-    find_balanced_end,
 )
 
 
 def fix_debug_logs(entries: list[dict], *, dry_run: bool = False) -> FixResult:
-    """Remove tagged console.log lines and clean up aftermath (dead vars, empty blocks)."""
-    entries_by_file: dict[str, list[dict]] = {}
-    for entry in entries:
-        entries_by_file.setdefault(entry["file"], []).append(entry)
-
-    def _transform(lines: list[str], file_entries: list[dict]):
-        lines_to_remove: set[int] = set()
-        for entry in file_entries:
-            start = entry["line"] - 1
-            if start < 0 or start >= len(lines):
+    def transform(lines, file_entries):
+        source = "".join(lines).encode("utf-8")
+        grammar = "tsx" if file_entries[0]["file"].endswith(".tsx") else "typescript"
+        selected = {}
+        for node, tag in tagged_log_calls(source, grammar):
+            row, col = node.start_point
+            if is_logger_wrapper_context(lines, row):
                 continue
-            if is_logger_wrapper_context(lines, start):
-                continue
-            end = find_balanced_end(lines, start, track="parens")
-            if end is None:
-                print(
-                    colorize(
-                        (
-                            f"  Warn: skipping {rel(entry['file'])}:{entry['line']} "
-                            "— could not find statement end"
-                        ),
-                        "yellow",
-                    ),
-                    file=sys.stderr,
-                )
-                continue
-            for idx in range(start, end + 1):
-                lines_to_remove.add(idx)
-            mark_orphaned_comments(lines, start, lines_to_remove)
+            if any(
+                e["line"] == row + 1 and e.get("column", col + 1) == col + 1
+                for e in file_entries
+            ):
+                selected[node.start_byte] = (node, tag)
+        if not selected:
+            return lines, []
 
-        lines_to_remove |= find_dead_log_variables(lines, lines_to_remove)
-        new_lines = collapse_blank_lines(lines, lines_to_remove)
-        new_lines = remove_empty_blocks(new_lines)
-        tags = sorted(set(entry.get("tag", "") for entry in file_entries))
-        return new_lines, tags
+        changes = {
+            start: (node.end_byte, node) for start, (node, _) in selected.items()
+        }
+        offsets = [0]
+        for line in lines:
+            offsets.append(offsets[-1] + len(line.encode("utf-8")))
+        for node, _ in selected.values():
+            row = node.start_point.row
+            if (
+                not source[offsets[row] : node.start_byte].strip()
+                and row
+                and lines[row - 1].lstrip().startswith("// DEBUG:")
+            ):
+                changes[offsets[row - 1]] = (offsets[row], None)
+        ordered = sorted(changes.items())
 
-    raw_results = apply_fixer(entries, _transform, dry_run=dry_run)
+        def render(start, end):
+            pieces = []
+            cursor = start
+            for offset, (stop, node) in ordered:
+                if offset < cursor or stop > end:
+                    continue
+                pieces.append(source[cursor:offset])
+                if node is not None:
+                    args = node.child_by_field_name("arguments")
+                    evaluated = []
+                    for arg in args.named_children:
+                        if arg.type in {
+                            "comment",
+                            "string",
+                            "number",
+                            "true",
+                            "false",
+                            "null",
+                        }:
+                            continue
+                        # Preserve spreads, getters, throws and calls in evaluation order.
+                        evaluated.append(render(arg.start_byte, arg.end_byte))
+                    pieces.append(
+                        b"(void [" + b", ".join(evaluated) + b"])"
+                        if evaluated
+                        else b"(void 0)"
+                    )
+                cursor = stop
+            pieces.append(source[cursor:end])
+            return b"".join(pieces)
+
+        return render(0, len(source)).decode("utf-8").splitlines(keepends=True), sorted(
+            {tag for _, tag in selected.values()}
+        )
+
+    results = apply_fixer(entries, transform, dry_run=dry_run)
     return FixResult(
         entries=[
             {
-                "file": result["file"],
-                "removed": result["removed"],
-                "tags": result["removed"],
-                "lines_removed": result["lines_removed"],
-                "log_count": len(entries_by_file.get(result["file"], [])),
+                "file": r["file"],
+                "removed": r["removed"],
+                "tags": r["removed"],
+                "lines_removed": r["lines_removed"],
+                "log_count": sum(e["file"] == r["file"] for e in entries),
             }
-            for result in raw_results
+            for r in results
         ]
     )
 

@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Uncalled private function detection for Python.
 
 Finds underscore-prefixed top-level functions with zero references
@@ -5,7 +6,7 @@ across the entire codebase. Only flags high-confidence cases:
 - _private (underscore prefix = explicitly internal)
 - Top-level only (no method-resolution ambiguity)
 - Non-dunder, non-decorated, non-test
-- Body > 3 lines (skip trivial helpers)
+- Any function size; references and explicit exports establish use
 """
 
 from __future__ import annotations
@@ -59,9 +60,6 @@ def _is_candidate(node: ast.AST) -> bool:
         return False
     if node.decorator_list:
         return False
-    loc = (node.end_lineno or node.lineno) - node.lineno + 1
-    if loc <= 3:
-        return False
     return True
 
 
@@ -97,6 +95,22 @@ def detect_uncalled_functions(
             elif isinstance(node, ast.ImportFrom | ast.Import):
                 for alias in node.names or []:
                     refs.add(alias.name)
+            elif isinstance(node, ast.Assign | ast.AnnAssign | ast.AugAssign):
+                targets = (
+                    node.targets if isinstance(node, ast.Assign) else [node.target]
+                )
+                if node.value is not None and any(
+                    isinstance(target, ast.Name) and target.id == "__all__"
+                    for target in targets
+                ):
+                    # Explicit public exports may name an underscore-prefixed
+                    # helper without an ordinary Name/Attribute reference.
+                    refs.update(
+                        value.value
+                        for value in ast.walk(node.value)
+                        if isinstance(value, ast.Constant)
+                        and isinstance(value.value, str)
+                    )
 
         # Collect candidates (only from non-test, non-entry files)
         if _is_test_file(filepath) or _is_entry_file(filepath):

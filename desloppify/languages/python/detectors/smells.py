@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Python code smell detection configuration and public entrypoint."""
 
 from __future__ import annotations
@@ -26,6 +27,10 @@ def _smell(smell_id: str, label: str, severity: str, pattern: str | None = None)
 
 
 SMELL_CHECKS = [
+    _smell("syntax_error", "Python syntax error (analysis incomplete)", "high"),
+    _smell("constant_condition", "Constant condition in branch", "medium"),
+    _smell("function_redefinition", "Function redefinition in the same block", "high"),
+    _smell("debug_print", "Explicit debug print left in source", "low"),
     _smell(
         "eval_exec",
         "eval()/exec() usage",

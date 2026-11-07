@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Python import-resolution policy helpers used by dependency detectors."""
 
 from __future__ import annotations
@@ -107,19 +108,18 @@ def resolve_relative_import(module_path: str, source_dir: Path) -> str | None:
 
 
 def resolve_absolute_import(module_path: str, scan_root: Path) -> str | None:
-    """Resolve an absolute import within scan root first, then project root."""
+    """Resolve direct-root imports first, then conventional src-layout imports."""
     parts = module_path.split(".")
-    target_base = scan_root.resolve()
-    for part in parts:
-        target_base = target_base / part
-    resolved = try_resolve_path(target_base)
-    if resolved:
-        return resolved
-
-    target_base = get_project_root()
-    for part in parts:
-        target_base = target_base / part
-    return try_resolve_path(target_base)
+    scan_root = scan_root.resolve()
+    project_root = get_project_root()
+    roots = dict.fromkeys(
+        (scan_root, project_root, scan_root / "src", project_root / "src")
+    )
+    for root in roots:
+        resolved = try_resolve_path(root.joinpath(*parts))
+        if resolved:
+            return resolved
+    return None
 
 
 def try_resolve_path(target_base: Path) -> str | None:

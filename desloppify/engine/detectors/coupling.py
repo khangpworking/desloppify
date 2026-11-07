@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Coupling analysis: boundary violations and boundary candidates.
 
 These detect architectural violations in codebases with shared/tools structure.
@@ -45,6 +46,8 @@ def _norm_prefix(prefix: str, *, name: str) -> str:
 
 def _norm_root(path: Path) -> str:
     """Normalize project root path for absolute/relative prefix matching."""
+    if path.root and not path.drive:
+        return _norm_path(str(path)).rstrip("/") + "/"
     try:
         root = _norm_path(str(path.resolve()))
     except OSError:

@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tagged console.log('[Tag]') detection.
 
 Catches:
@@ -9,9 +10,7 @@ Catches:
 import argparse
 import json
 import logging
-import os
 import re
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -19,18 +18,13 @@ from desloppify.base.discovery.file_paths import rel, resolve_path
 from desloppify.base.discovery.source import find_ts_and_tsx_files
 from desloppify.base.output.fallbacks import log_best_effort_failure
 from desloppify.base.output.terminal import colorize, print_table
-from desloppify.base.search.grep import grep_files
 from desloppify.languages.typescript.detectors.contracts import DetectorResult
+from desloppify.languages.typescript.detectors.logs_syntax import tagged_log_calls
 
 logger = logging.getLogger(__name__)
 
 
 TAG_EXTRACT_RE = re.compile(r"\[([^\]]+)\]")
-
-# Pattern 1: Direct and emoji-prefixed tags
-_PAT1 = r"console\.(log|warn|info|debug)\s*\(\s*['\"`].{0,4}\["
-# Pattern 2: Template-literal tag via variable containing TAG/DEBUG/LOG
-_PAT2 = r"console\.(log|warn|info|debug)\s*\(\s*`\$\{\w*(TAG|DEBUG|LOG)\w*\}"
 
 
 def detect_logs(path: Path) -> DetectorResult[dict]:
@@ -38,23 +32,30 @@ def detect_logs(path: Path) -> DetectorResult[dict]:
     ts_files = find_ts_and_tsx_files(path)
     total_files = len(ts_files)
 
-    hits1 = grep_files(_PAT1, ts_files)
-    hits2 = grep_files(_PAT2, ts_files, flags=re.IGNORECASE)
-
-    seen: set[tuple[str, int]] = set()
     entries = []
-    for filepath, lineno, content in hits1 + hits2:
-        key = (filepath, lineno)
-        if key in seen:
+    for filepath in ts_files:
+        file_path = Path(resolve_path(filepath))
+        try:
+            source = file_path.read_bytes()
+            source.decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            log_best_effort_failure(logger, f"read logs from {filepath}", exc)
             continue
-        seen.add(key)
-        tag_match = TAG_EXTRACT_RE.search(content)
-        tag = tag_match.group(1) if tag_match else "unknown"
-        entries.append(
-            {"file": filepath, "line": lineno, "tag": tag, "content": content.strip()}
-        )
+        grammar = "tsx" if file_path.suffix == ".tsx" else "typescript"
+        for node, tag in tagged_log_calls(source, grammar):
+            entries.append(
+                {
+                    "file": filepath,
+                    "line": node.start_point.row + 1,
+                    "column": node.start_point.column + 1,
+                    "tag": tag,
+                    "content": source[node.start_byte : node.end_byte].decode("utf-8"),
+                }
+            )
 
-    return DetectorResult(entries=entries, population_kind="files", population_size=total_files)
+    return DetectorResult(
+        entries=entries, population_kind="files", population_size=total_files
+    )
 
 
 def cmd_logs(args: argparse.Namespace) -> None:
@@ -96,7 +97,9 @@ def cmd_logs(args: argparse.Namespace) -> None:
     print_table(["File", "Count"], rows, [70, 6])
 
     if args.fix:
-        print(colorize(f"\n--fix: Will remove {len(entries)} tagged log lines.", "yellow"))
+        print(
+            colorize(f"\n--fix: Will remove {len(entries)} tagged log lines.", "yellow")
+        )
         confirm = input("Proceed? [y/N] ").strip().lower()
         if confirm == "y":
             _fix_logs(by_file)
@@ -105,32 +108,9 @@ def cmd_logs(args: argparse.Namespace) -> None:
 
 
 def _fix_logs(by_file: dict[str, list]):
-    removed = 0
-    failed = 0
-    for filepath, file_entries in by_file.items():
-        lines_to_remove = {e["line"] for e in file_entries}
-        p = Path(filepath) if Path(filepath).is_absolute() else Path(resolve_path(filepath))
-        try:
-            original = p.read_text()
-            new_lines = []
-            for i, line in enumerate(original.splitlines(keepends=True), start=1):
-                if i not in lines_to_remove:
-                    new_lines.append(line)
-                else:
-                    removed += 1
-            tmp = p.with_suffix(p.suffix + ".tmp")
-            tmp.write_text("".join(new_lines))
-            os.replace(str(tmp), str(p))
-        except OSError as e:
-            failed += 1
-            print(colorize(f"  Failed to fix {filepath}: {e}", "red"), file=sys.stderr)
-            try:
-                tmp.unlink(missing_ok=True)
-            except OSError as cleanup_exc:
-                log_best_effort_failure(
-                    logger, f"clean temporary log fixer file {tmp}", cleanup_exc
-                )
-    msg = f"Removed {removed} lines across {len(by_file)} files."
-    if failed:
-        msg += f" ({failed} files failed.)"
-    print(colorize(msg, "green"))
+    from desloppify.languages.typescript.fixers.logs import fix_debug_logs
+
+    result = fix_debug_logs(
+        [entry for entries in by_file.values() for entry in entries]
+    )
+    print(colorize(f"Updated {len(result.entries)} files.", "green"))

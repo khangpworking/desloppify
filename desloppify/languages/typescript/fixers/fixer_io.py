@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """File-grouped write pipeline for TypeScript fixer transforms."""
 
 from __future__ import annotations
@@ -65,7 +66,7 @@ def _process_fixer_file(
     dry_run: bool,
 ) -> dict[str, object] | None:
     path = Path(filepath) if Path(filepath).is_absolute() else get_project_root() / filepath
-    original = path.read_text()
+    original = path.read_text(encoding="utf-8")
     lines = original.splitlines(keepends=True)
 
     new_lines, removed_names = transform_fn(lines, file_entries)

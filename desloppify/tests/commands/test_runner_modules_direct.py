@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Direct coverage tests for app.commands.runner helper modules."""
 
 from __future__ import annotations
@@ -162,6 +163,7 @@ def test_run_codex_batch_sends_stdin_when_command_uses_dash(monkeypatch, tmp_pat
 
 
 def test_codex_batch_command_uses_sanitized_reasoning_effort(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(codex_batch_mod, "_resolve_executable", lambda name: [name])
     monkeypatch.setenv("DESLOPPIFY_CODEX_REASONING_EFFORT", "HIGH")
 
     command = codex_batch_mod.codex_batch_command(

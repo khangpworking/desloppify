@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Shared scan workflow phases used by the scan command facade."""
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ from desloppify.base.discovery.source import (
     get_exclusions,
 )
 from desloppify.base.discovery.paths import get_project_root
+from desloppify.base.exception_sets import CommandError
 from desloppify.engine._state.filtering import path_scoped_issues
 from desloppify.engine._state.merge import MergeScanOptions, merge_scan
 from desloppify.engine._state.noise import (
@@ -408,6 +410,12 @@ def run_scan_generation(
         warn_explicit_lang_with_no_files(
             runtime.args, runtime.lang, runtime.path, codebase_metrics
         )
+        if codebase_metrics is not None and codebase_metrics.get("total_files") == 0:
+            raise CommandError(
+                "No source files were analyzed; refusing to publish a score. "
+                "Check the scan path, language, and exclusions.",
+                exit_code=2,
+            )
         issues = _augment_with_stale_exclusion_issues(
             issues,
             runtime,

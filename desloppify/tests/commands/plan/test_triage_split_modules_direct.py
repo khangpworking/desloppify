@@ -1,8 +1,10 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Direct coverage tests for split triage validation/orchestrator modules."""
 
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -1314,7 +1316,8 @@ def test_orchestrator_pipeline_writes_exact_cli_helper(tmp_path: Path) -> None:
     helper = orchestrator_pipeline_mod._write_desloppify_cli_helper(tmp_path)
     text = helper.read_text(encoding="utf-8")
     assert helper.exists()
-    assert helper.stat().st_mode & 0o111
+    if os.name != "nt":  # Windows stat does not expose POSIX executable bits.
+        assert helper.stat().st_mode & 0o111
     assert "PYTHONPATH=" in text
     assert "-m desloppify.cli" in text
 

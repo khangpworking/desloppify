@@ -1,9 +1,11 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for desloppify.languages.typescript.fixers — all fixer modules.
 
 Covers: __init__, common, imports, vars, logs, params, if_chain, useeffect.
 """
 
 import textwrap
+import pytest
 
 from desloppify.languages.typescript.fixers import __all__
 from desloppify.languages.typescript.fixers.fixer_io import apply_fixer
@@ -480,6 +482,9 @@ class TestFixUnusedVars:
 
 class TestFixDebugLogs:
     """Tests for fix_debug_logs()."""
+    @pytest.fixture(autouse=True)
+    def _requires_parser(self):
+        pytest.importorskip("tree_sitter_language_pack")
 
     def test_remove_single_log(self, tmp_path):
         """A single tagged console.log is removed."""

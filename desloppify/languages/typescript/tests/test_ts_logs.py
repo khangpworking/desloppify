@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for desloppify.languages.typescript.detectors.logs — tagged console.log detection."""
 
 from pathlib import Path
@@ -28,6 +29,10 @@ def _detect(path: Path) -> tuple[list[dict], int]:
 
 
 class TestDetectLogs:
+    @pytest.fixture(autouse=True)
+    def _requires_parser(self):
+        pytest.importorskip("tree_sitter_language_pack")
+
     def test_detects_tagged_console_log(self, tmp_path):
         """Finds console.log with [Tag] prefix."""
 

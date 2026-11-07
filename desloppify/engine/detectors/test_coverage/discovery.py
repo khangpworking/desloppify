@@ -1,9 +1,9 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """File discovery and mapping helpers for test coverage detector."""
 
 from __future__ import annotations
 
 import math
-import os
 
 from desloppify.base.discovery.paths import get_project_root
 from desloppify.engine.policy.zones import FileZoneMap, Zone
@@ -17,14 +17,11 @@ _MAX_NO_TESTS_ENTRIES = 50
 
 def _normalize_graph_paths(graph: dict) -> dict:
     """Normalize graph paths to relative paths."""
-    root_prefix = str(get_project_root()) + os.sep
+    root_prefix = str(get_project_root()).replace("\\", "/").rstrip("/") + "/"
 
     def _to_rel(path: str) -> str:
-        return path[len(root_prefix) :] if path.startswith(root_prefix) else path
-
-    needs_norm = any(k.startswith(root_prefix) for k in graph)
-    if not needs_norm:
-        return graph
+        normalized = path.replace("\\", "/")
+        return normalized[len(root_prefix) :] if normalized.startswith(root_prefix) else path
 
     norm_graph: dict = {}
     for key, value in graph.items():
@@ -44,10 +41,11 @@ def _discover_scorable_and_tests(
     extra_test_files: set[str] | None,
 ) -> tuple[set[str], set[str], set[str], int]:
     """Return (production_files, test_files, scorable_files, potential)."""
-    root_prefix = str(get_project_root()) + os.sep
+    root_prefix = str(get_project_root()).replace("\\", "/").rstrip("/") + "/"
 
     def _to_rel(path: str) -> str:
-        return path[len(root_prefix) :] if path.startswith(root_prefix) else path
+        normalized = path.replace("\\", "/")
+        return normalized[len(root_prefix) :] if normalized.startswith(root_prefix) else path
 
     all_files = zone_map.all_files()
     production_files = set(zone_map.include_only(all_files, Zone.PRODUCTION, Zone.SCRIPT))

@@ -1,8 +1,11 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for Python uncalled-function detector."""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from desloppify.languages.python.detectors.deps import build_dep_graph
 from desloppify.languages.python.detectors.uncalled import detect_uncalled_functions
@@ -220,19 +223,37 @@ def _setup():
     assert entries == []
 
 
-def test_trivial_function_not_detected(tmp_path: Path):
-    """Functions with body <= 3 lines should NOT be detected (too trivial to flag)."""
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "def _tiny(): return 42\n",
+        "def _tiny():\n    return 42\n",
+        "def _tiny():\n    value = 42\n    return value\n",
+        "async def _tiny():\n    return 42\n",
+        "def _tiny():\n    first = 20\n    second = 22\n    return first + second\n",
+    ],
+)
+@pytest.mark.parametrize(
+    "reference, expected",
+    [
+        ("", {"_tiny"}),
+        ("value = _tiny()\n", set()),
+        ("callbacks = [_tiny]\n", set()),
+        ('__all__ = ["_tiny"]\n', set()),
+    ],
+)
+def test_tiny_private_function_requires_a_reference(
+    tmp_path: Path, definition, reference, expected
+):
+    """Size does not make an unreferenced helper live; explicit use/export does."""
     f = _write(
         tmp_path / "module.py",
-        """\
-def _tiny():
-    return 42
-""",
+        definition + reference,
     )
     graph = {f: _graph_entry()}
     entries, _ = detect_uncalled_functions(tmp_path, graph)
 
-    assert entries == []
+    assert {entry["name"] for entry in entries} == expected
 
 
 def test_method_inside_class_not_detected(tmp_path: Path):
@@ -335,4 +356,6 @@ def test_self_scan_no_false_positives():
         "detect_star_import_no_all",
     }
     false_positives = flagged_names & known_used
-    assert not false_positives, f"False positives on known-used functions: {false_positives}"
+    assert not false_positives, (
+        f"False positives on known-used functions: {false_positives}"
+    )

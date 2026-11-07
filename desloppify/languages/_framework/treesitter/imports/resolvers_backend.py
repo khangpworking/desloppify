@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Import resolvers for compiled/backend-oriented languages."""
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ def resolve_go_import(import_text: str, source_file: str, scan_path: str) -> str
         return None
 
     rel_path = import_text[len(module_path) :].lstrip("/")
-    candidate_dir = os.path.join(scan_path, rel_path)
+    candidate_dir = os.path.normpath(os.path.join(scan_path, rel_path))
     if os.path.isdir(candidate_dir):
         for filename in sorted(os.listdir(candidate_dir)):
             if filename.endswith(".go") and not filename.endswith("_test.go"):
@@ -46,7 +47,7 @@ def resolve_rust_import(import_text: str, source_file: str, scan_path: str) -> s
     if os.path.isfile(candidate):
         return candidate
 
-    candidate = os.path.join(src_dir, *path_parts, "mod.rs")
+    candidate = os.path.normpath(os.path.join(src_dir, *path_parts, "mod.rs"))
     if os.path.isfile(candidate):
         return candidate
 
@@ -68,7 +69,7 @@ def resolve_java_import(import_text: str, source_file: str, scan_path: str) -> s
 
     rel_path = os.path.join(*parts[:-1], parts[-1] + ".java")
     for src_root in ["src/main/java", "src", "app/src/main/java", "."]:
-        candidate = os.path.join(scan_path, src_root, rel_path)
+        candidate = os.path.normpath(os.path.join(scan_path, src_root, rel_path))
         if os.path.isfile(candidate):
             return candidate
     return None
@@ -87,7 +88,7 @@ def resolve_kotlin_import(import_text: str, source_file: str, scan_path: str) ->
     for ext in (".kt", ".kts"):
         rel_path = os.path.join(*parts[:-1], parts[-1] + ext)
         for src_root in ["src/main/kotlin", "src/main/java", "src", "app/src/main/kotlin", "."]:
-            candidate = os.path.join(scan_path, src_root, rel_path)
+            candidate = os.path.normpath(os.path.join(scan_path, src_root, rel_path))
             if os.path.isfile(candidate):
                 return candidate
     return None
@@ -104,7 +105,7 @@ def resolve_cxx_include(import_text: str, source_file: str, scan_path: str) -> s
         return candidate
 
     for inc_dir in ["include", "src", "."]:
-        candidate = os.path.join(scan_path, inc_dir, import_text)
+        candidate = os.path.normpath(os.path.join(scan_path, inc_dir, import_text))
         if os.path.isfile(candidate):
             return candidate
     return None
@@ -120,10 +121,10 @@ def resolve_csharp_import(import_text: str, source_file: str, scan_path: str) ->
     filename = parts[-1] + ".cs"
     for src_root in ["src", ".", "lib"]:
         rel_path = os.path.join(*parts[:-1], filename)
-        candidate = os.path.join(scan_path, src_root, rel_path)
+        candidate = os.path.normpath(os.path.join(scan_path, src_root, rel_path))
         if os.path.isfile(candidate):
             return candidate
-        candidate = os.path.join(scan_path, src_root, filename)
+        candidate = os.path.normpath(os.path.join(scan_path, src_root, filename))
         if os.path.isfile(candidate):
             return candidate
     return None
@@ -137,7 +138,7 @@ def resolve_dart_import(import_text: str, source_file: str, scan_path: str) -> s
         parts = import_text[len("package:") :].split("/", 1)
         if len(parts) < 2:
             return None
-        candidate = os.path.join(scan_path, "lib", parts[1])
+        candidate = os.path.normpath(os.path.join(scan_path, "lib", parts[1]))
         return candidate if os.path.isfile(candidate) else None
 
     base = os.path.dirname(source_file)
@@ -157,7 +158,7 @@ def resolve_scala_import(import_text: str, source_file: str, scan_path: str) -> 
 
     rel_path = os.path.join(*parts[:-1], parts[-1] + ".scala")
     for src_root in ["src/main/scala", "src", "."]:
-        candidate = os.path.join(scan_path, src_root, rel_path)
+        candidate = os.path.normpath(os.path.join(scan_path, src_root, rel_path))
         if os.path.isfile(candidate):
             return candidate
     return None

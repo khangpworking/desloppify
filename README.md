@@ -1,3 +1,5 @@
+> Modified fork maintained by khangpworking (2026-11-08). See [PATCHES.md](PATCHES.md) for changes and benchmark results.
+
 # Desloppify - an agent harness to make your codebase 🤌
 
 [![PyPI version](https://img.shields.io/pypi/v/desloppify)](https://pypi.org/project/desloppify/) ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)

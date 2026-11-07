@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Import resolvers for scripting-oriented languages."""
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ def resolve_ruby_import(import_text: str, source_file: str, scan_path: str) -> s
         return candidate if os.path.isfile(candidate) else None
 
     for base in [os.path.join(scan_path, "lib"), scan_path]:
-        candidate = os.path.join(base, import_text.replace("/", os.sep))
+        candidate = os.path.normpath(os.path.join(base, import_text.replace("/", os.sep)))
         if not candidate.endswith(".rb"):
             candidate += ".rb"
         if os.path.isfile(candidate):
@@ -133,7 +134,7 @@ def resolve_php_import(import_text: str, source_file: str, scan_path: str) -> st
                 if not remainder:
                     continue
                 rel_path = remainder.replace("\\", os.sep) + ".php"
-                candidate = os.path.join(scan_path, directory, rel_path)
+                candidate = os.path.normpath(os.path.join(scan_path, directory, rel_path))
                 candidate = os.path.normpath(candidate)
                 if os.path.isfile(candidate):
                     return candidate
@@ -142,7 +143,7 @@ def resolve_php_import(import_text: str, source_file: str, scan_path: str) -> st
     for prefix_len in range(1, min(3, len(parts))):
         rel_path = os.path.join(*parts[prefix_len:]) + ".php"
         for src_root in ["src", "app", "lib", "."]:
-            candidate = os.path.join(scan_path, src_root, rel_path)
+            candidate = os.path.normpath(os.path.join(scan_path, src_root, rel_path))
             if os.path.isfile(candidate):
                 return candidate
     return None
@@ -155,11 +156,11 @@ def resolve_lua_import(import_text: str, source_file: str, scan_path: str) -> st
         return None
 
     rel_path = import_text.replace(".", os.sep) + ".lua"
-    candidate = os.path.join(scan_path, rel_path)
+    candidate = os.path.normpath(os.path.join(scan_path, rel_path))
     if os.path.isfile(candidate):
         return candidate
 
-    candidate = os.path.join(scan_path, import_text.replace(".", os.sep), "init.lua")
+    candidate = os.path.normpath(os.path.join(scan_path, import_text.replace(".", os.sep), "init.lua"))
     if os.path.isfile(candidate):
         return candidate
     return None
@@ -174,7 +175,7 @@ def resolve_js_import(import_text: str, source_file: str, scan_path: str) -> str
     base = os.path.dirname(source_file)
     candidate = os.path.normpath(os.path.join(base, import_text))
     for ext in ("", ".js", ".jsx", ".mjs", ".cjs", "/index.js", "/index.jsx"):
-        path = candidate + ext
+        path = os.path.normpath(candidate + ext)
         if os.path.isfile(path):
             return path
     return None
@@ -234,7 +235,7 @@ def resolve_perl_import(import_text: str, source_file: str, scan_path: str) -> s
 
     rel_path = import_text.replace("::", os.sep) + ".pm"
     for base in [os.path.join(scan_path, "lib"), scan_path]:
-        candidate = os.path.join(base, rel_path)
+        candidate = os.path.normpath(os.path.join(base, rel_path))
         if os.path.isfile(candidate):
             return candidate
     return None
@@ -255,7 +256,7 @@ def resolve_r_import(import_text: str, source_file: str, scan_path: str) -> str 
         return candidate
 
     for src_root in [".", "R"]:
-        candidate = os.path.join(scan_path, src_root, text)
+        candidate = os.path.normpath(os.path.join(scan_path, src_root, text))
         if os.path.isfile(candidate):
             return candidate
     return None

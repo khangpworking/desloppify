@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Packaging metadata invariants for optional dependency extras."""
 
 from __future__ import annotations
@@ -62,4 +63,4 @@ def test_treesitter_language_pack_is_capped_below_incompatible_release() -> None
         if str(spec).startswith("tree-sitter-language-pack")
     ]
 
-    assert language_pack_specs == ["tree-sitter-language-pack>=0.3,<1.8"]
+    assert language_pack_specs == ["tree-sitter-language-pack>=0.13,<1"]

@@ -1,7 +1,12 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for desloppify.languages.python.detectors.deps — Python dependency graph builder."""
 
 import textwrap
 from pathlib import Path
+
+import pytest
+
+from desloppify.engine.detectors.orphaned import detect_orphaned_files
 
 from desloppify.languages.python.detectors.deps import (
     build_dep_graph,
@@ -70,31 +75,39 @@ class TestBasicGraph:
         # main.py imports utils.py
         assert graph[main_key]["import_count"] >= 1
 
-    def test_absolute_import_within_project(self, tmp_path):
-        """Absolute imports resolve when module is under scan root or PROJECT_ROOT.
+    @pytest.mark.parametrize("layout", ["", "src"])
+    @pytest.mark.parametrize("scan_scope", [".", "tests"])
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            "from acme.harness import Runner\n",
+            "import acme.harness as harness\n",
+            "from acme import harness\n",
+        ],
+    )
+    def test_absolute_import_within_project(
+        self, tmp_path, set_project_root, layout, scan_scope, statement
+    ):
+        """Public API consumers create real edges in flat and src layouts."""
+        package = tmp_path / layout / "acme"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        used = package / "harness.py"
+        unused = package / "unused.py"
+        for path in [used, unused]:
+            path.write_text(
+                "class Runner:\n    pass\n" + "# module documentation\n" * 10
+            )
+        consumer = tmp_path / "tests" / "test_api.py"
+        consumer.parent.mkdir()
+        consumer.write_text(statement)
 
-        Note: absolute imports like `from mypkg.core import X` resolve relative to
-        the scan root's parent. In tmp_path, this may not resolve if the package
-        structure doesn't match. We test that the graph is built without error and
-        contains the expected files.
-        """
-        pkg = _make_pkg(
-            tmp_path,
-            {
-                "__init__.py": "",
-                "core.py": "CONST = 42\n",
-                "cli.py": "from mypkg.core import CONST\n",
-            },
-        )
-        graph = build_dep_graph(pkg)
-        cli_key = None
-        for k in graph:
-            if k.endswith("cli.py"):
-                cli_key = k
-        assert cli_key is not None
-        # The import may or may not resolve depending on filesystem layout,
-        # but cli.py should exist in the graph
-        assert "imports" in graph[cli_key]
+        graph = build_dep_graph(tmp_path / scan_scope)
+        assert str(used) in graph[str(consumer)]["imports"]
+        assert str(consumer) in graph[str(used)]["importers"]
+        if scan_scope == ".":
+            orphans, _ = detect_orphaned_files(tmp_path, graph, [".py"])
+            assert {entry["file"] for entry in orphans} == {str(unused)}
 
     def test_multi_file_graph(self, tmp_path):
         pkg = _make_pkg(
@@ -344,9 +357,7 @@ class TestDynamicImportFinder:
         assert len(targets) >= 1
         # The raw specifier should match if resolution fails,
         # or a resolved path ending in auth.py if it succeeds
-        found = any(
-            "auth" in t for t in targets
-        )
+        found = any("auth" in t for t in targets)
         assert found, f"Expected 'auth' in targets, got {targets}"
 
     def test_ignores_non_string_args(self, tmp_path):

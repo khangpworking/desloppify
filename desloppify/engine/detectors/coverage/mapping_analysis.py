@@ -1,9 +1,9 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Analysis helpers extracted from coverage mapping orchestration."""
 
 from __future__ import annotations
 
 import logging
-import os
 from collections import deque
 from collections.abc import Callable
 from typing import Any
@@ -139,7 +139,7 @@ def _build_prod_by_module(
     project_root: str,
 ) -> dict[str, str]:
     """Build module lookup map for production files."""
-    root_str = project_root + os.sep
+    root_str = project_root.replace("\\", "/").rstrip("/") + "/"
     prod_by_module: dict[str, str] = {}
     ambiguous_aliases: set[str] = set()
 
@@ -154,10 +154,11 @@ def _build_prod_by_module(
         prod_by_module.pop(alias, None)
 
     for prod_file in production_files:
+        normalized = prod_file.replace("\\", "/")
         rel_path = (
-            prod_file[len(root_str) :]
-            if prod_file.startswith(root_str)
-            else prod_file
+            normalized[len(root_str) :]
+            if normalized.startswith(root_str)
+            else normalized
         )
         # Strip src/ prefix so src-layout projects map correctly
         # (e.g. 'src/argos_toolkit/foo.py' -> 'argos_toolkit.foo')
@@ -188,8 +189,9 @@ def get_test_files_for_prod(
 ) -> list[str]:
     """Find which test files exercise a given production file."""
     parsed_imports_by_test = parsed_imports_by_test or {}
-    root_str = project_root + os.sep
-    rel_prod = prod_file[len(root_str) :] if prod_file.startswith(root_str) else prod_file
+    root_str = project_root.replace("\\", "/").rstrip("/") + "/"
+    normalized = prod_file.replace("\\", "/")
+    rel_prod = normalized[len(root_str) :] if normalized.startswith(root_str) else normalized
     module_name = rel_prod.replace("/", ".").replace("\\", ".")
     if "." in module_name:
         module_name = module_name.rsplit(".", 1)[0]

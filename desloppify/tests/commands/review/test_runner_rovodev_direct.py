@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Direct unit tests for the Rovo Dev (`acli rovodev`) batch runner."""
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ def _safe_write_text(path: Path, text: str) -> None:
 
 def test_rovodev_batch_command_includes_acli_rovodev_run_invocation(monkeypatch) -> None:
     """The default command line invokes ``acli rovodev run`` with ``--yolo``."""
+    monkeypatch.setattr(runner_rovodev_mod, "_resolve_executable", lambda name: [name])
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_NO_YOLO", raising=False)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_OUTPUT_SCHEMA", raising=False)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_EXTRA_ARGS", raising=False)
@@ -46,6 +48,7 @@ def test_rovodev_batch_command_includes_acli_rovodev_run_invocation(monkeypatch)
 
 def test_rovodev_batch_command_honours_env_overrides(monkeypatch) -> None:
     """Schema, extra args, and executable overrides are respected."""
+    monkeypatch.setattr(runner_rovodev_mod, "_resolve_executable", lambda name: [name])
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_NO_YOLO", raising=False)
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_OUTPUT_SCHEMA", '{"type":"object"}')
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_EXTRA_ARGS", "--config-override foo")
@@ -67,6 +70,7 @@ def test_rovodev_batch_command_honours_env_overrides(monkeypatch) -> None:
 
 def test_rovodev_batch_command_no_yolo_opt_out(monkeypatch) -> None:
     """Setting DESLOPPIFY_ROVODEV_NO_YOLO=1 omits the --yolo flag."""
+    monkeypatch.setattr(runner_rovodev_mod, "_resolve_executable", lambda name: [name])
     monkeypatch.setenv("DESLOPPIFY_ROVODEV_NO_YOLO", "1")
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_OUTPUT_SCHEMA", raising=False)
     monkeypatch.delenv("DESLOPPIFY_ROVODEV_EXTRA_ARGS", raising=False)

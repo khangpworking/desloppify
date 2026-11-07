@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """TypeScript/React language configuration for desloppify."""
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from desloppify.languages._framework.base.phase_builders import (
 from desloppify.languages._framework.base.types import (
     BoundaryRule,
     DetectorPhase,
+    DetectorCoverageStatus,
     LangConfig,
     LangSecurityResult,
 )
@@ -89,6 +91,19 @@ def _ts_extract_functions(path):
 
 
 class TypeScriptConfig(LangConfig):
+    def scan_coverage_prerequisites(self) -> list[DetectorCoverageStatus]:
+        from desloppify.languages.typescript.detectors.logs_syntax import logs_parser_available
+
+        if logs_parser_available():
+            return []
+        return [DetectorCoverageStatus(
+            detector="logs", status="reduced", confidence=0.0,
+            summary="TypeScript parser unavailable; tagged-log analysis is skipped.",
+            impact="An empty tagged-log result does not establish clean code; automatic log edits are disabled.",
+            remediation="Install desloppify[treesitter] or desloppify[full].",
+            tool="tree-sitter-language-pack", reason="missing_dependency",
+        )]
+
     def detect_lang_security_detailed(self, files, zone_map):
         result = detect_ts_security(files, zone_map)
         return LangSecurityResult(

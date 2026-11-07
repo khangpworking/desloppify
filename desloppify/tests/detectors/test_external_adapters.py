@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for external tool adapters: Knip, ruff smells, and bandit.
 
 Each adapter must:
@@ -573,9 +574,13 @@ class TestJscpdAdapter:
         ) as popen, patch(
             "desloppify.engine.detectors.jscpd_adapter.os.getpgid",
             return_value=9876,
+            create=True,
         ), patch(
             "desloppify.engine.detectors.jscpd_adapter.os.killpg",
-        ) as killpg:
+            create=True,
+        ) as killpg, patch(
+            "desloppify.engine.detectors.jscpd_adapter.signal.SIGKILL", 9, create=True,
+        ):
             with pytest.raises(subprocess.TimeoutExpired):
                 _run_jscpd_command(["jscpd"], timeout=1)
 
@@ -967,7 +972,7 @@ class TestCollectExcludeDirs:
             "desloppify.base.discovery.source.get_exclusions", return_value=()
         ):
             result = collect_exclude_dirs(tmp_path)
-        basenames = {p.rsplit("/", 1)[-1] for p in result}
+        basenames = {Path(p).name for p in result}
         assert "node_modules" in basenames
         assert "__pycache__" in basenames
         assert ".git" in basenames
@@ -988,7 +993,7 @@ class TestCollectExcludeDirs:
             return_value=("vendor", "third_party"),
         ):
             result = collect_exclude_dirs(tmp_path)
-        basenames = {p.rsplit("/", 1)[-1] for p in result}
+        basenames = {Path(p).name for p in result}
         assert "vendor" in basenames
         assert "third_party" in basenames
 
@@ -1008,5 +1013,5 @@ class TestCollectExcludeDirs:
             return_value=("node_modules",),
         ):
             result = collect_exclude_dirs(tmp_path)
-        node_entries = [p for p in result if p.endswith("/node_modules")]
+        node_entries = [p for p in result if Path(p).name == "node_modules"]
         assert len(node_entries) == 1

@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Direct tests for split TypeScript phase/fixer helper modules."""
 
 from __future__ import annotations
@@ -5,50 +6,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import desloppify.languages.typescript.fixers.logs_cleanup as logs_cleanup_mod
 import desloppify.languages.typescript.fixers.logs_context as logs_context_mod
 import desloppify.languages.typescript.phases_basic as phases_basic_mod
 import desloppify.languages.typescript.phases_config as phases_config_mod
 import desloppify.languages.typescript.phases_coupling as phases_coupling_mod
 import desloppify.languages.typescript.phases_smells as phases_smells_mod
 import desloppify.languages.typescript.phases_structural as phases_structural_mod
-
-
-def test_logs_cleanup_helpers_cover_comment_marking_dead_vars_and_block_cleanup() -> None:
-    lines = [
-        "// DEBUG: remove with log\n",
-        "// keep this note\n",
-        "console.log(token)\n",
-    ]
-    to_remove = {2}
-    logs_cleanup_mod.mark_orphaned_comments(lines, 2, to_remove)
-    assert 0 in to_remove
-    assert 1 not in to_remove
-
-    dead_lines = logs_cleanup_mod.find_dead_log_variables(
-        [
-            "const dbg = token;\n",
-            "console.log(dbg);\n",
-            "const keep = token;\n",
-            "doSomething(keep);\n",
-        ],
-        removed_indices={1},
-    )
-    assert dead_lines == {0}
-
-    cleaned = logs_cleanup_mod.remove_empty_blocks(
-        [
-            "if (ok) {}\n",
-            "promise.then(() => {})\n",
-            "React.useEffect(() => {\n",
-            "});\n",
-            "keep();\n",
-            "\n",
-            "\n",
-        ]
-    )
-    assert "keep();\n" in cleaned
-    assert cleaned.count("\n") <= 1
 
 
 def test_logs_context_helpers_cover_inline_and_previous_line_detection() -> None:

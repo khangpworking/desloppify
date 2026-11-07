@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Zone classification system — deterministic file intent classification.
 
 Classifies files into zones (production, test, config, generated, script, vendor)
@@ -90,7 +91,9 @@ def _match_pattern(rel_path: str, pattern: str) -> bool:
 
     See ZoneRule docstring for pattern type conventions.
     """
-    basename = os.path.basename(rel_path)
+    rel_path = rel_path.replace("\\", "/")
+    pattern = pattern.replace("\\", "/")
+    basename = rel_path.rsplit("/", 1)[-1]
 
     # Directory pattern: "/dir/" → substring on padded path
     if pattern.startswith("/") and pattern.endswith("/"):

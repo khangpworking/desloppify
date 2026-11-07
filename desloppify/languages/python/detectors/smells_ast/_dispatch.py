@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Orchestration for Python AST smell detectors."""
 
 from __future__ import annotations
@@ -5,6 +6,12 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from functools import partial
+
+from ._tree_obvious_defects import (
+    _detect_constant_condition,
+    _detect_debug_print,
+    _detect_function_redefinition,
+)
 
 from desloppify.languages.python.detectors.smells_ast._node_detectors_basic import (
     _detect_dead_functions,
@@ -78,6 +85,9 @@ NODE_DETECTORS: tuple[_NodeDetectorSpec, ...] = (
 
 
 TREE_DETECTORS: tuple[_TreeDetectorSpec, ...] = (
+    _TreeDetectorSpec("constant_condition", _detect_constant_condition),
+    _TreeDetectorSpec("debug_print", _detect_debug_print),
+    _TreeDetectorSpec("function_redefinition", _detect_function_redefinition),
     _TreeDetectorSpec("subprocess_no_timeout", _detect_subprocess_no_timeout),
     _TreeDetectorSpec("unsafe_file_write", _detect_unsafe_file_write),
     _TreeDetectorSpec("unreachable_code", _detect_unreachable_code),
@@ -115,7 +125,11 @@ def detect_ast_smells(
     """Detect AST-based code smells using registry-driven collector dispatch."""
     try:
         tree = ast.parse(content, filename=filepath)
-    except SyntaxError:
+    except SyntaxError as exc:
+        merge_smell_matches(smell_counts, "syntax_error", [{
+            "file": filepath, "line": exc.lineno or 1,
+            "content": f"{exc.msg}: {(exc.text or '').strip()[:100]}",
+        }])
         return
 
     # Build a single-walk context index for node-level detectors.

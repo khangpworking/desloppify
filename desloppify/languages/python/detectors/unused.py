@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Python unused detection via ruff (F401=unused imports, F841=unused vars)."""
 
 from __future__ import annotations
@@ -47,6 +48,8 @@ def _parse_ruff_diagnostics(
     name_re = re.compile(r"`([^`]+)`")
     for diagnostic in diagnostics:
         code = diagnostic.get("code", "")
+        if code not in {"F401", "F841"}:
+            continue
         filepath = diagnostic.get("filename", "")
         if _is_excluded(filepath, exclusions):
             continue

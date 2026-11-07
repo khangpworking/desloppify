@@ -1,6 +1,8 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for command helper modules: rendering, state, subjective."""
 
 from __future__ import annotations
+from pathlib import Path
 
 from types import SimpleNamespace
 
@@ -167,7 +169,7 @@ def test_state_path_from_explicit_state_arg():
     args = SimpleNamespace(state="/custom/path.json", lang=None)
     result = state_path(args)
     assert result is not None
-    assert str(result) == "/custom/path.json"
+    assert result == Path("/custom/path.json")
 
 
 def test_state_path_from_lang_arg():

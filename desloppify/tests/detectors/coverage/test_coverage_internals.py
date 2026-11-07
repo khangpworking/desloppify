@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for test_coverage discovery and metrics internals."""
 
 from __future__ import annotations
@@ -109,8 +110,8 @@ def test_normalize_graph_paths_converts_absolute_to_relative():
 
     result = discovery_mod._normalize_graph_paths(graph)
 
-    expected_key = "src" + sep + "module.py"
-    expected_import = "src" + sep + "other.py"
+    expected_key = "src/module.py"
+    expected_import = "src/other.py"
     assert expected_key in result
     assert expected_import in result[expected_key]["imports"]
 

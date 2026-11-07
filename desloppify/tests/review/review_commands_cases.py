@@ -1,3 +1,4 @@
+# Modified by khangpworking on 2026-11-08 for benchmark repairs. See PATCHES.md.
 """Tests for the subjective code review system (review.py, commands/review/cmd.py)."""
 
 from __future__ import annotations
@@ -102,6 +103,12 @@ class TestBatchDimensionCoverageNotices:
 
 
 class TestCmdReviewPrepare:
+    @pytest.fixture(autouse=True)
+    def _native_executable_for_subprocess_fakes(self, monkeypatch):
+        # These tests fake the subprocess, so keep argv independent of installed
+        # npm shims. Windows wrapping is exercised in test_runner_modules_direct.
+        monkeypatch.setattr(runner_process_mod, "_resolve_executable", lambda name: [name])
+
     def test_do_prepare_writes_query_json(
         self, mock_lang_with_zones, empty_state, tmp_path
     ):
@@ -950,6 +957,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = timeout, cwd
             out_path = Path(cmd[cmd.index("-o") + 1])
@@ -1190,6 +1198,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = capture_output, text, timeout, cwd
             out_path = Path(cmd[cmd.index("-o") + 1])
@@ -1309,6 +1318,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = capture_output, text, timeout, cwd
             out_path = Path(cmd[cmd.index("-o") + 1])
@@ -1466,6 +1476,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = capture_output, text, timeout, cwd
             # Simulate Codex occasionally returning JSON on stdout while failing
@@ -1576,6 +1587,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = capture_output, text, timeout, cwd
             out_path = Path(cmd[cmd.index("-o") + 1])
@@ -1707,6 +1719,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = capture_output, text, timeout, cwd
             return MagicMock(returncode=124, stdout="", stderr="timed out")
@@ -1775,6 +1788,7 @@ class TestCmdReviewPrepare:
             text=False,
             timeout=None,
             cwd=None,
+            input=None,
         ):
             _ = capture_output, text, timeout, cwd
             out_path = Path(cmd[cmd.index("-o") + 1])
@@ -1937,7 +1951,7 @@ class TestCmdReviewPrepare:
         output_file = tmp_path / "out.txt"
         live_snapshot = {"text": ""}
 
-        def fake_run(_cmd, *, capture_output, text, timeout):  # noqa: ARG001
+        def fake_run(_cmd, *, capture_output, text, timeout, input=None):  # noqa: ARG001
             if log_file.exists():
                 live_snapshot["text"] = log_file.read_text()
             output_file.write_text('{"assessments": {}, "issues": []}')
